@@ -1,0 +1,10 @@
+[
+	{
+		"maxplayers": 2, 
+		"chipcount": 10000
+	},
+	{
+		"maxplayers": 6,
+		"chipcount": 50000
+	}
+]
