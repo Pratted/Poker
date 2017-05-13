@@ -32,8 +32,10 @@ Note that the server component of All Star Poker has no GUI. It's specifically d
 
 #### Choose your seat.
 
-![alt text](https://github.com/pratted/poker/client/images/joingame.png "Choose a seat")
+![alt text](https://github.com/Pratted/poker/blob/master/client/images/joingame.png "Choose a seat")
 
+#### Make a bet.
 
+![alt text](https://github.com/Pratted/poker/blob/master/client/images/betscreen.png "Make a bet")
 
 
