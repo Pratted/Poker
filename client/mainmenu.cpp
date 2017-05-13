@@ -18,12 +18,12 @@ MainMenu::MainMenu(QWidget *parent) :
     table.widget = ui->tableWidget;
     table.headers << "" << "Players" << "Max Players" << "Chip Count" << "Blinds" << "Status";
 
-    table.widget->insertColumn(0);
-    table.widget->insertColumn(1);
-    table.widget->insertColumn(2);
-    table.widget->insertColumn(3);
-    table.widget->insertColumn(4);
-    table.widget->insertColumn(5);
+    table.widget->insertColumn(COL_SELECT_BUTTON);
+    table.widget->insertColumn(COL_CURRENT_PLAYERS);
+    table.widget->insertColumn(COL_MAX_PLAYERS);
+    table.widget->insertColumn(COL_CHIP_COUNT);
+    table.widget->insertColumn(COL_BLINDS);
+    table.widget->insertColumn(COL_STATUS);
 
     table.widget->setHorizontalHeaderLabels(table.headers);
 }
@@ -55,11 +55,11 @@ void MainMenu::updateGames(QString gameinfo){
             table.addRow(row);
         }
 
-        table.widget->item(row, 1)->setText(game.players);
-        table.widget->item(row, 2)->setText(game.maxplayers);
-        table.widget->item(row, 3)->setText(game.chipcount);
-        table.widget->item(row, 4)->setText("5000");
-        table.widget->item(row, 5)->setText(game.status);
+        table.widget->item(row, COL_CURRENT_PLAYERS)->setText(game.players);
+        table.widget->item(row, COL_MAX_PLAYERS)->setText(game.maxplayers);
+        table.widget->item(row, COL_CHIP_COUNT)->setText(game.chipcount);
+        table.widget->item(row, COL_BLINDS)->setText("5000");
+        table.widget->item(row, COL_STATUS)->setText(game.status);
     }
 }
 
@@ -67,10 +67,10 @@ void MainMenu::Table::addRow(int row){
     this->widget->insertRow(row);
 
     this->games[row] = new QRadioButton(this->widget);
-    this->widget->setCellWidget(row,0, this->games[row]);
+    this->widget->setCellWidget(row,COL_SELECT_BUTTON, this->games[row]);
 
     qDebug() << "Create button at location: " << this->games[row];
-    qDebug() << "Create button at location: " << this->widget->cellWidget(row, 0);
+    qDebug() << "Create button at location: " << this->widget->cellWidget(row, COL_SELECT_BUTTON);
 
 
     //std::cout << "created button at location: " << this->widget->item(row,0);

@@ -2,21 +2,21 @@
 #include <functional>
 #include <QInputDialog>
 
+#include "countdowntimer.h"
 #include "gameui.h"
 #include "seat.h"
 #include "ui_gameui.h"
 #include "packet.h"
 
-
 #define TABLE_SIZE 8
+#define DEALER 9
 
 GameUI::GameUI(QWidget *parent) : QMainWindow(parent), ui(new Ui::GameUI)
 {
     ui->setupUi(this);
     this->hide();
 
-
-    for(int i = 0; i < 8; i++){
+    for(int i = 0; i < TABLE_SIZE; i++){
         seats.push_back(Seat(i));
     }
 
@@ -28,6 +28,7 @@ GameUI::GameUI(QWidget *parent) : QMainWindow(parent), ui(new Ui::GameUI)
     }
 
     connect(ui->messageBox, &QLineEdit::returnPressed, this, &GameUI::sendMessage);
+    connect(&nextRoundTimer, &QTimer::timeout, this, &GameUI::countdown);
 }
 /*
 GameUI::GameUI(GameSettings &settings, QWidget* parent) :
@@ -47,7 +48,6 @@ GameUI::GameUI(GameSettings &settings, QWidget* parent) :
         connect(seats[i].buttonSitInSeat, &QPushButton::clicked, this, std::bind(&GameUI::chooseSeat, this, i));
     }
 
-    connect(&nextRoundTimer, &QTimer::timeout, this, &GameUI::countdown);
     connect(ui->messageBox, &QLineEdit::returnPressed, this, &GameUI::sendMessage);
     log("Finish GameUI Initialization.\n");
 }
@@ -58,26 +58,68 @@ void GameUI::hideSeatButtons() {
         seat.buttonSitInSeat->hide();
     }
 }
-void GameUI::showSeatButtons() {
+*/
+
+void GameUI::addPlayer(QString contents){
+    /************************************************************************************
+     contents is a string with the seatid and player name delimited by a colon.
+
+     Example.            5:Eric
+    *************************************************************************************/
+    int seatid = QString(contents.split(':')[0]).toInt();
+    QString name = contents.split(':')[1];
+
+    Seat& seat = seats[seatid];
+    if(seat.isTaken) return;
+
+    Player* player = new Player(seat.id, name);
+    seat.player = player;
+    seat.playerName->setText(name);
+
+    player->labelChipCount = seat.chipCount;
+    player->labelChipCount->setText(this->gameinfo.chipcount);
+
+    player->card1.label = seat.labelCard1;
+    player->card2.label = seat.labelCard2;
+
+    seat.isTaken = true;
+    player->isSeated = true;
+
+    seat.display();
+}
+
+void GameUI::addSelf(QString contents){
+    qDebug() << "Seating myself.";
+
+    int seatid = QString(contents.split(':')[0]).toInt();
+    QString name = contents.split(':')[1];
+
+    Seat& seat = seats[seatid];
+    if(seat.isTaken) qDebug() << "Server said seat was available, but it is not.";
+
+    self->name = name;
+    self->id = seatid;
+    seat.player = self;
+    seat.playerName->setText(name);
+
+    self->labelChipCount = seat.chipCount;
+    self->labelChipCount->setText(this->gameinfo.chipcount);
+
+    self->card1.label = seat.labelCard1;
+    self->card2.label = seat.labelCard2;
+
+    seat.isTaken = true;
+    self->isSeated = true;
+
+    seat.display();
+
+    //Hide all the other seats. Client/Self is seated.
     for (auto &seat : seats) {
-        if (seat.buttonSitInSeat->isVisible())
-            seat.buttonSitInSeat->show();
+        seat.buttonSitInSeat->hide();
     }
 }
 
-void GameUI::hideBetButtons() {
-    ui->labelButtonHolder->hide();
-    ui->labelCardHolder->hide();
 
-    ui->buttonBet->hide();
-    ui->buttonCall->hide();
-    ui->buttonFold->hide();
-    ui->buttonCancel->hide();
-    ui->buttonSubmit->hide();
-    ui->inputBet->hide();
-    ui->horizontalBetSlider->hide();
-}
-*/
 
 void GameUI::chooseSeat(int seatid){
     qDebug() << "The client has chosen seat: " << seatid;
@@ -89,31 +131,98 @@ void GameUI::chooseSeat(int seatid){
 
     Packet outgoing(Packet::Opcode::C2S_CHOSE_SEAT, QString::number(seatid) + ":" + name);
     //Packet outgoing(Packet::Opcode::C2S_MESSAGE, "May I have seat" + QString::number(seatid));
-    player->socket->write(outgoing.package());
+    self->socket->write(outgoing.package());
 }
 
-void GameUI::seatPlayer(int seatid){
-    qDebug() << "Seating player.";
+void GameUI::displayMessage(QString sender, QString message){
+    int seatid = sender.toInt();
+    QString name = "";
 
-    //seats[seatid].player = new Player(&seats[seatid]);
-    //seats[seatid].
-}
+    qDebug() << "Seat: " << seatid;
+    //qDebug() << "playerName->text: " << seats[seatid].playerName->text();
+    //Append name + colon if player message.
+    if(seatid != DEALER) name = seats[seatid].playerName->text() + ": ";
 
-void GameUI::displayMessage(QString message){
-    ui->messageBrowser->append(message);
+    ui->messageBrowser->append(name + message);
 }
 
 void GameUI::sendMessage() {
     QString message = ui->messageBox->text();
 
     if(message.isEmpty()) return;
-
-    //message = player->name + ": " + message;
     ui->messageBox->clear();
 
     Packet packet(Packet::Opcode::C2S_MESSAGE, message);
-    player->socket->write(packet.package());
+    self->socket->write(packet.package());
 }
+
+void GameUI::showBetMenu(){
+    ui->buttonCall->hide();
+    ui->buttonFold->hide();
+    ui->buttonBet->hide();
+
+    ui->buttonSubmit->raise();
+    ui->buttonSubmit->show();
+
+    ui->buttonCancel->raise();
+    ui->buttonCancel->show();
+
+    ui->horizontalBetSlider->raise();
+    ui->horizontalBetSlider->show();
+
+    ui->inputBet->raise();
+    ui->inputBet->show();
+
+    ui->buttonIncrementBet->raise();
+    ui->buttonDecrementBet->raise();
+    ui->buttonIncrementBet->show();
+    ui->buttonDecrementBet->show();
+}
+
+void GameUI::hideBetMenu() {
+    ui->labelButtonHolder->hide();
+    ui->labelCardHolder->hide();
+
+    ui->buttonBet->hide();
+    ui->buttonCall->hide();
+    ui->buttonFold->hide();
+    ui->buttonCancel->hide();
+    ui->buttonSubmit->hide();
+    ui->inputBet->hide();
+    ui->horizontalBetSlider->hide();
+}
+
+void GameUI::startRoundTimer() {
+    nextRoundTimer.start(1000);
+}
+
+void GameUI::countdown() {
+    static int secondsLeft = 6;
+    QString countdown = "The next round begins in: ";
+
+    if (secondsLeft == 6) {
+        QFont labelFont;
+        labelFont.setPixelSize(20);
+        ui->labelBottomRight->setFont(labelFont);
+        secondsLeft--;
+    }
+
+    countdown += ('0' + secondsLeft);
+
+    if (secondsLeft) {
+        startRoundTimer();
+        ui->labelBottomRight->setText(countdown);
+        ui->labelBottomRight->show();
+        secondsLeft--;
+    }
+    else {
+        nextRoundTimer.stop();
+        ui->labelBottomRight->setText("");
+        ui->labelBottomRight->hide();
+        secondsLeft = 5;
+    }
+}
+
 
 void GameUI::setBackground() {
 
@@ -172,6 +281,7 @@ void GameUI::positionSeats() {
     QFont font;
     font.setPixelSize(20);
 
+
     //Seat 0
     {
         seats[0].buttonSitInSeat = ui->buttonSitInSeat0;
@@ -180,10 +290,9 @@ void GameUI::positionSeats() {
         seats[0].chipCount = ui->Player0ChipCount;
         seats[0].labelCard1 = ui->Player0Card1;
         seats[0].labelCard2 = ui->Player0Card2;
-        //seats[0].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[0].timer->setGeometry(735, 25, 150, 150);
-        //seats[0].timer->hide();
-
+        seats[0].timer = new CountdownTimer;
+        seats[0].timer->setGeometry(735, 25, 150, 150);
+        seats[0].timer->hide();
         seats[0].chipStacks[0] = ui->Player0Stack0;
         seats[0].chipStacks[1] = ui->Player0Stack1;
         seats[0].chipStacks[2] = ui->Player0Stack2;
@@ -201,9 +310,9 @@ void GameUI::positionSeats() {
         seats[1].chipCount = ui->Player1ChipCount;
         seats[1].labelCard1 = ui->Player1Card1;
         seats[1].labelCard2 = ui->Player1Card2;
-        //seats[1].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[1].timer->setGeometry(975, 175, 150, 150);
-        //seats[1].timer->hide();
+        seats[1].timer = new CountdownTimer(ui->centralwidget);
+        seats[1].timer->setGeometry(975, 175, 150, 150);
+        seats[1].timer->hide();
 
         seats[1].chipStacks[0] = ui->Player1Stack0;
         seats[1].chipStacks[1] = ui->Player1Stack1;
@@ -222,9 +331,9 @@ void GameUI::positionSeats() {
         seats[2].chipCount = ui->Player2ChipCount;
         seats[2].labelCard1 = ui->Player2Card1;
         seats[2].labelCard2 = ui->Player2Card2;
-        //seats[2].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[2].timer->setGeometry(945, 365, 150, 150);
-        //seats[2].timer->hide();
+        seats[2].timer = new CountdownTimer(ui->centralwidget);
+        seats[2].timer->setGeometry(945, 365, 150, 150);
+        seats[2].timer->hide();
 
         seats[2].chipStacks[0] = ui->Player2Stack0;
         seats[2].chipStacks[1] = ui->Player2Stack1;
@@ -243,9 +352,9 @@ void GameUI::positionSeats() {
         seats[3].chipCount = ui->Player3ChipCount;
         seats[3].labelCard1 = ui->Player3Card1;
         seats[3].labelCard2 = ui->Player3Card2;
-        //seats[3].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[3].timer->setGeometry(675, 455, 150, 150);
-        //seats[3].timer->hide();
+        seats[3].timer = new CountdownTimer(ui->centralwidget);
+        seats[3].timer->setGeometry(675, 455, 150, 150);
+        seats[3].timer->hide();
 
         seats[3].chipStacks[0] = ui->Player3Stack0;
         seats[3].chipStacks[1] = ui->Player3Stack1;
@@ -264,9 +373,9 @@ void GameUI::positionSeats() {
         seats[4].chipCount = ui->Player4ChipCount;
         seats[4].labelCard1 = ui->Player4Card1;
         seats[4].labelCard2 = ui->Player4Card2;
-        //seats[4].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[4].timer->setGeometry(478, 455, 150, 150);
-        //seats[4].timer->hide();
+        seats[4].timer = new CountdownTimer(ui->centralwidget);
+        seats[4].timer->setGeometry(478, 455, 150, 150);
+        seats[4].timer->hide();
 
         seats[4].chipStacks[0] = ui->Player4Stack0;
         seats[4].chipStacks[1] = ui->Player4Stack1;
@@ -286,9 +395,9 @@ void GameUI::positionSeats() {
         seats[5].chipCount = ui->Player5ChipCount;
         seats[5].labelCard1 = ui->Player5Card1;
         seats[5].labelCard2 = ui->Player5Card2;
-        //seats[5].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[5].timer->setGeometry(208, 365, 150, 150);
-        //seats[5].timer->hide();
+        seats[5].timer = new CountdownTimer(ui->centralwidget);
+        seats[5].timer->setGeometry(208, 365, 150, 150);
+        seats[5].timer->hide();
 
         seats[5].chipStacks[0] = ui->Player5Stack0;
         seats[5].chipStacks[1] = ui->Player5Stack1;
@@ -308,9 +417,9 @@ void GameUI::positionSeats() {
         seats[6].chipCount = ui->Player6ChipCount;
         seats[6].labelCard1 = ui->Player6Card1;
         seats[6].labelCard2 = ui->Player6Card2;
-        //seats[6].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[6].timer->setGeometry(188, 165, 150, 150);
-        //seats[6].timer->hide();
+        seats[6].timer = new CountdownTimer(ui->centralwidget);
+        seats[6].timer->setGeometry(188, 165, 150, 150);
+        seats[6].timer->hide();
 
         seats[6].chipStacks[0] = ui->Player6Stack0;
         seats[6].chipStacks[1] = ui->Player6Stack1;
@@ -329,9 +438,9 @@ void GameUI::positionSeats() {
         seats[7].chipCount = ui->Player7ChipCount;
         seats[7].labelCard1 = ui->Player7Card1;
         seats[7].labelCard2 = ui->Player7Card2;
-        //seats[7].timer.reset(new CountdownTimer(ui->centralwidget));
-        //seats[7].timer->setGeometry(398, 25, 150, 150);
-        //seats[7].timer->hide();
+        seats[7].timer = new CountdownTimer(ui->centralwidget);
+        seats[7].timer->setGeometry(398, 25, 150, 150);
+        seats[7].timer->hide();
 
         seats[7].chipStacks[0] = ui->Player7Stack0;
         seats[7].chipStacks[1] = ui->Player7Stack1;
@@ -343,15 +452,12 @@ void GameUI::positionSeats() {
         seats[7].chipStacks[7] = ui->Player7Stack7;
     }
 
+    community.card1.label = ui->labelCommunityCard1;
+    community.card2.label = ui->labelCommunityCard2;
+    community.card3.label = ui->labelCommunityCard3;
+    community.card4.label = ui->labelCommunityCard4;
+    community.card5.label = ui->labelCommunityCard5;
 
-
-    //community.card1.image = ui->labelCommunityCard1;
-    //community.card2.image = ui->labelCommunityCard2;
-    //community.card3.image = ui->labelCommunityCard3;
-    //community.card4.image = ui->labelCommunityCard4;
-    //community.card5.image = ui->labelCommunityCard5;
-
-    /*
     for (auto &seat : seats) {
         seat.playerName->hide();
         seat.chipCount->hide();
@@ -362,5 +468,4 @@ void GameUI::positionSeats() {
             stack->hide();
         }
     }
-    */
 }

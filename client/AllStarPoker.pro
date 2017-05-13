@@ -31,7 +31,8 @@ SOURCES += main.cpp\
     gameinfo.cpp \
     gameui.cpp \
     seat.cpp \
-    card.cpp
+    card.cpp \
+    countdowntimer.cpp
 
 HEADERS  += mainmenu.h \
     player.h \
@@ -40,6 +41,8 @@ HEADERS  += mainmenu.h \
     gameinfo.h \
     gameui.h \
     seat.h \
-    card.h
+    card.h \
+    countdowntimer.h \
+    community.h
 
 FORMS    += mainmenu.ui gameui.ui

@@ -9,6 +9,10 @@
 #include <iostream>
 #include <vector>
 
+//#include "countdowntimer.h"
+
+
+class CountdownTimer;
 class Player;
 
 class Seat {
@@ -32,6 +36,7 @@ public:
     QLabel* placeholder;
 
     QLabel* labelTimer;
+    CountdownTimer* timer;
     //std::unique_ptr<CountdownTimer> timer;
     //CountdownTimer timer;
 

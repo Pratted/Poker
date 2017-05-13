@@ -33,6 +33,7 @@ bool Client::hasValidHost(){
     return isIPv4(host.toStdString()) && (port > 0 && port < 65536);
 }
 
+//My old Leetcode solution to verify ipv4.
 bool Client::isIPv4(std::string ip){
     int dots = 0;
     for(int i = 0; i < ip.length(); i++){
@@ -73,7 +74,7 @@ void Client::loadHost(){
     host = info.split(':')[0];
     port = QString(info.split(':')[1]).toUInt();
     */
-    host = "192.168.1.13";
+    host = "192.168.1.14";
     port = 45454;
 }
 
@@ -83,7 +84,7 @@ void Client::startClient(){
     game = new GameUI;
 
     player->socket = this->socket;
-    game->player = player;
+    game->self = player;
 
     connect(socket, &QTcpSocket::readyRead, this, &Client::readPacket);
     connect(menu->ui->buttonJoinGame, &QPushButton::clicked, this, &Client::joinGame);
@@ -95,10 +96,17 @@ void Client::readPacket(){
     socket->waitForBytesWritten(10);
 
     while(socket->bytesAvailable()){
+        //Packet incoming;
+        //socket->read(PACKET_SIZE) >> incoming;
+
         Packet incoming;
-        socket->read(PACKET_SIZE) >> incoming;
+        incoming = socket->read(PACKET_SIZE); // >> incoming;
 
         incoming.unpack();
+
+        int i = 0;
+        QString str1 = "";
+        QString str2 = "";
 
         switch(incoming.opcode){
 
@@ -106,13 +114,16 @@ void Client::readPacket(){
                 qDebug() << "Received Game Info!";
                 menu->updateGames(incoming.payload);
                 break;
-
             case Packet::Opcode::S2C_MESSAGE:
-                this->game->displayMessage(incoming.payload);
+                qDebug() << "Got a chat message.";
+                this->game->displayMessage(incoming.dest, incoming.payload);
+                break;
+            case Packet::Opcode::S2C_JOIN_GAME:
+                game->addSelf(incoming.payload);
                 break;
             case Packet::Opcode::S2C_ADD_PLAYER:
                 qDebug() << "The dealer is telling us a player has joined the game.";
-                game->seats[incoming.payload.toInt()].addPlayer(this->player);
+                game->addPlayer(incoming.payload);
                 break;
         }
 
@@ -140,6 +151,9 @@ bool Client::joinGame(){
     if(gameno < 0){ QMessageBox::information(0, "Cannot join game", "Select a game to join."); return false; }
     if(status != "Waiting for players"){ QMessageBox::information(0, "Cannot join game", "You cannot join an existing game."); return false; }
 
+    this->game->gameinfo.chipcount = menu->table.widget->item(gameno, COL_CHIP_COUNT)->text();
+    this->game->gameinfo.maxplayers = menu->table.widget->item(gameno, COL_MAX_PLAYERS)->text();
+
     Packet outgoing(Packet::Opcode::C2S_JOIN_GAME, QString::number(gameno));
     socket->write(outgoing.package());
 
@@ -147,22 +161,5 @@ bool Client::joinGame(){
     socket->waitForBytesWritten(1000);
 
     game->show();
-    //qDebug() << "Sleeping for 5 seconds";
-    //QThread::sleep(2);
-    //qDebug() << "Finished";
-
-    Packet outgoing2(Packet::Opcode::C2S_MESSAGE, "I Just joined the game!");
-    socket->write(outgoing2.package());
-    socket->waitForBytesWritten(1000);
-
-    //qDebug() << "Sleeping for 5 seconds";
-    //QThread::sleep(2);
-    //qDebug() << "Finished";
-
-    Packet lol(Packet::Opcode::C2S_MESSAGE, "haha");
-
-    socket->write(lol.package());
-    socket->waitForBytesWritten(1000);
-
     return true;
 }

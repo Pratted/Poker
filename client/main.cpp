@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QMessageBox>
 
+#include "countdowntimer.h"
 #include "client.h"
 
 int main(int argc, char *argv[])

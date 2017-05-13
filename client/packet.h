@@ -38,7 +38,8 @@ public:
         S2C_ROUND_COUNTDOWN,
         S2C_REMOVE_PLAYER,
         C2S_MOVE_TYPE,
-        C2S_JOIN_GAME
+        C2S_JOIN_GAME,
+        S2C_JOIN_GAME
     } opcode;
 
     Packet() = default;
@@ -53,7 +54,7 @@ public:
     QString dest;
     QString payload;
 
-    //friend inline QByteArray& operator >> (QByteArray& str, Packet &packet);
+    Packet& operator=(QByteArray rhs){this->arr = rhs; return *this; }
 
     QByteArray arr;
 };
@@ -62,12 +63,5 @@ inline QByteArray& operator >> (QByteArray& str, Packet &packet){
     packet.arr = str;
     return str;
 }
-
-/*
-inline QByteArray& operator >> (QByteArray & str, Packet& packet) {
-    packet.arr = str; //was payload
-    return str;
-}
-*/
 
 #endif // PACKET_H
