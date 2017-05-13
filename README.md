@@ -26,6 +26,13 @@ Note that the server component of All Star Poker has no GUI. It's specifically d
 * Game sizes range from 2 to 8 players.
 * In game chat so clients can chat with one another.
 * Customizable player timers to keep the game running smoothly.
+* Pick and choose your seat - Sit next to your friends.
+
+## Gameplay
+
+#### Choose your seat.
+
+![alt text](https://github.com/pratted/poker/client/images/joingame.png "Choose a seat")
 
 
 
